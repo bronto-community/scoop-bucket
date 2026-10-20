@@ -41,9 +41,11 @@ section in the upstream repo's `.goreleaser.yaml` instead.
 Because goreleaser updates the manifests, this bucket has no Excavator
 (`checkver`/`autoupdate`) workflow; two writers would race each other.
 
-CI runs Scoop's bucket test suite (schema and file style) and installs every
-manifest for real, on push, on pull request, and weekly, because release assets
-can rot between releases.
+CI runs Scoop's bucket test suite (schema and file style), then installs every
+manifest for real on amd64 and arm64 Windows runners and runs the installed
+tool. On push, weekly, and on demand (Actions, CI, Run workflow) it follows the
+install steps above exactly; on pull requests it installs the proposed
+manifests. The weekly run catches release assets that rot between releases.
 
 ## Verifying artifacts
 

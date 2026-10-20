@@ -57,10 +57,25 @@ jobs:
           .\my_bucket\bin\test.ps1
 
   # The schema test never downloads anything, so a manifest with a stale hash
-  # or a missing asset would pass it. Install every manifest for real.
+  # or a missing asset would pass it. Install every manifest for real, on both
+  # architectures the manifests ship (free GitHub-hosted runners on a public
+  # repo), and run the installed tool.
+  #
+  # On pull requests the manifests are installed from the checked-out files,
+  # so the change under review is what gets tested. Everywhere else (push to
+  # main, the weekly run, Run workflow) the job follows the README exactly:
+  # add the bucket by its GitHub URL and install by bucket/name.
   install:
-    name: Install
-    runs-on: windows-latest
+    name: Install (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: 64bit
+          - runner: windows-11-arm
+            arch: arm64
     defaults:
       run:
         shell: pwsh
@@ -75,22 +90,48 @@ jobs:
           Invoke-RestMethod -Uri https://get.scoop.sh -OutFile install-scoop.ps1
           .\install-scoop.ps1 -RunAsAdmin
           Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\scoop\shims"
-      - name: Install every manifest
+      - name: Add the bucket by URL
+        if: github.event_name != 'pull_request'
+        run: scoop bucket add bronto-community "https://github.com/${{ github.repository }}"
+      - name: Install and run every manifest
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ARCH: ${{ matrix.arch }}
         run: |
+          # How to check each installed tool. A manifest without an entry is
+          # only checked for being installed.
+          $checks = @{
+            # `bronto version` prints JSON when stdout is not a terminal.
+            bronto = { (bronto version | ConvertFrom-Json).version }
+          }
           $manifests = Get-ChildItem bucket -Filter *.json
           if (-not $manifests) {
             Write-Output "No manifests yet; nothing to install."
             exit 0
           }
           foreach ($m in $manifests) {
-            Write-Output "::group::scoop install $($m.BaseName)"
-            scoop install $m.FullName
-            if ($LASTEXITCODE -ne 0) { throw "scoop install $($m.BaseName) failed" }
+            $name = $m.BaseName
+            $want = (Get-Content $m.FullName -Raw | ConvertFrom-Json).version
+            $source = if ($env:EVENT_NAME -eq 'pull_request') { $m.FullName } else { "bronto-community/$name" }
+            Write-Output "::group::scoop install $source"
+            # Scoop reports through Write-Host; 6>&1 captures that stream so
+            # the chosen architecture can be checked.
+            $out = scoop install $source 6>&1 | Out-String
+            Write-Output $out
+            if ($LASTEXITCODE -ne 0) { throw "scoop install $source failed" }
+            Write-Output "::endgroup::"
             # Scoop can exit 0 after a failed hash check, so confirm the app
             # actually landed.
-            $installed = scoop prefix $m.BaseName
+            $installed = scoop prefix $name
             if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installed)) {
-              throw "$($m.BaseName) is not installed after scoop install"
+              throw "$name is not installed after scoop install"
             }
-            Write-Output "::endgroup::"
+            if ($out -notmatch "\($([regex]::Escape($want))\) \[$env:ARCH\]") {
+              throw "$name $want was not installed as $env:ARCH"
+            }
+            if ($checks.ContainsKey($name)) {
+              $got = & $checks[$name]
+              if ($got -ne $want) { throw "$name reports version '$got', manifest has '$want'" }
+              Write-Output "$name $got ($env:ARCH) runs and reports the manifest version."
+            }
           }
