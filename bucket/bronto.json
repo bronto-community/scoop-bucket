@@ -1,19 +1,19 @@
 {
-    "version": "0.8.1",
+    "version": "0.8.2",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.1/bronto_0.8.1_windows_amd64.zip",
+            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.2/bronto_0.8.2_windows_amd64.zip",
             "bin": [
                 "bronto.exe"
             ],
-            "hash": "f8479e05b14b29c61839dac360c5ad38b1147af9d315abf7b185e8c97cabdce7"
+            "hash": "a481dbccbc9ee85a8f15a01ce9dec7da0bb85d5baaa8b2207bc0209cde69fc2a"
         },
         "arm64": {
-            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.1/bronto_0.8.1_windows_arm64.zip",
+            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.2/bronto_0.8.2_windows_arm64.zip",
             "bin": [
                 "bronto.exe"
             ],
-            "hash": "85ba3d801a9f243119c01ace5bcddc7ba2ce2e51bb40ba28893ec35ec0ac44d0"
+            "hash": "cbf73a893d13431a1781ef9f9d34d7083de4788bf3c1806ac9d9e8ae006336cd"
         }
     },
     "homepage": "https://github.com/bronto-community/bronto-cli",
