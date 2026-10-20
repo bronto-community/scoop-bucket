@@ -1,0 +1,7 @@
+# Blank issues stay enabled so maintainers can file bucket-level problems. The
+# links steer user-facing bug reports upstream, where the code actually lives.
+blank_issues_enabled: true
+contact_links:
+  - name: bronto CLI bug or feature request
+    url: https://github.com/bronto-community/bronto-cli/issues
+    about: Anything about the bronto command itself. This bucket only carries its manifest.

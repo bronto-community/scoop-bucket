@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Release assets can rot between releases (retagged or deleted uploads), and
+  # goreleaser only pushes here on release, so without a timer nothing
+  # revalidates the hashes.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Scoop's own bucket test suite (from ScoopInstaller/BucketTemplate): every
+  # manifest validates against Scoop's schema, and every file passes its style
+  # constraints (CRLF on checkout via .gitattributes, no BOM, final newline, no
+  # trailing whitespace).
+  test:
+    name: Test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - name: Checkout bucket
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Need at least 2 commits to properly gather changed files for linting
+          fetch-depth: 2
+          path: my_bucket
+          persist-credentials: false
+      - name: Checkout Scoop
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ScoopInstaller/Scoop
+          path: scoop_core
+          persist-credentials: false
+      - name: Install and cache test dependencies
+        uses: potatoqualitee/psmodulecache@9e4b63833c22c1768d648e115a9c849afdda22a5 # v6.3
+        with:
+          modules-to-cache: BuildHelpers, Pester
+          shell: ${{ matrix.shell }}
+      - name: Run tests
+        run: |
+          $env:SCOOP_HOME="$(Convert-Path '.\scoop_core')"
+          .\my_bucket\bin\test.ps1
+
+  # The schema test never downloads anything, so a manifest with a stale hash
+  # or a missing asset would pass it. Install every manifest for real.
+  install:
+    name: Install
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Scoop
+        run: |
+          # Runners are elevated, and the installer refuses to run as admin
+          # without -RunAsAdmin.
+          Invoke-RestMethod -Uri https://get.scoop.sh -OutFile install-scoop.ps1
+          .\install-scoop.ps1 -RunAsAdmin
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\scoop\shims"
+      - name: Install every manifest
+        run: |
+          $manifests = Get-ChildItem bucket -Filter *.json
+          if (-not $manifests) {
+            Write-Output "No manifests yet; nothing to install."
+            exit 0
+          }
+          foreach ($m in $manifests) {
+            Write-Output "::group::scoop install $($m.BaseName)"
+            scoop install $m.FullName
+            if ($LASTEXITCODE -ne 0) { throw "scoop install $($m.BaseName) failed" }
+            # Scoop can exit 0 after a failed hash check, so confirm the app
+            # actually landed.
+            $installed = scoop prefix $m.BaseName
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installed)) {
+              throw "$($m.BaseName) is not installed after scoop install"
+            }
+            Write-Output "::endgroup::"
+          }
