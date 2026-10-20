@@ -1,0 +1,22 @@
+{
+    "version": "0.8.1",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.1/bronto_0.8.1_windows_amd64.zip",
+            "bin": [
+                "bronto.exe"
+            ],
+            "hash": "f8479e05b14b29c61839dac360c5ad38b1147af9d315abf7b185e8c97cabdce7"
+        },
+        "arm64": {
+            "url": "https://github.com/bronto-community/bronto-cli/releases/download/v0.8.1/bronto_0.8.1_windows_arm64.zip",
+            "bin": [
+                "bronto.exe"
+            ],
+            "hash": "85ba3d801a9f243119c01ace5bcddc7ba2ce2e51bb40ba28893ec35ec0ac44d0"
+        }
+    },
+    "homepage": "https://github.com/bronto-community/bronto-cli",
+    "license": "MIT",
+    "description": "Community CLI for the Bronto observability platform"
+}
